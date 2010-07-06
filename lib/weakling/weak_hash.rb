@@ -125,35 +125,3 @@ module Weakling
     end
   end
 end
-
-class Test
-  attr_accessor :foo, :bar, :baz
-end
-
-w = Weakling::WeakHash.new
-
-def force_cleanup
-  if defined? RUBY_ENGINE && RUBY_ENGINE == 'jruby'
-    begin
-      require 'java'
-      java.lang.System.gc
-    rescue
-      JRuby.gc
-    end
-  else
-    GC.start
-  end
-end
-
-a = "a"
-100.times {|x|
-  y = x + 1
-  #w[Object.new] = Test.new
-  w[Object.new] = 1#"Test.new"
-}
-
-10.times{ force_cleanup }
-
-w._cleanup rescue nil
-puts "\n"
-p w

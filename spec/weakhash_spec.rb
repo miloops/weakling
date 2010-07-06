@@ -1,6 +1,19 @@
 require 'weakling'
 require 'jruby'
 
+def force_cleanup
+  if defined? RUBY_ENGINE && RUBY_ENGINE == 'jruby'
+    begin
+      require 'java'
+      java.lang.System.gc
+    rescue
+      JRuby.gc
+    end
+  else
+    GC.start
+  end
+end
+
 describe Weakling::WeakHash do
   before(:each) do
     @weak_hash = Weakling::WeakHash.new
