@@ -1,7 +1,7 @@
 require 'weakling'
 require 'jruby'
 
-def force_cleanup
+def force_gc_cleanup
   if defined? RUBY_ENGINE && RUBY_ENGINE == 'jruby'
     begin
       require 'java'
@@ -12,6 +12,7 @@ def force_cleanup
   else
     GC.start
   end
+  sleep 0.2 # Give GC a little time to do the magick
 end
 
 describe Weakling::WeakHash do
@@ -44,17 +45,13 @@ describe Weakling::WeakHash do
     initial_memory_usage = `ps -o rss= -p #{$$}`.to_i
 
     1000.times do |x|
-      w[x] = Test.new
-      w[x-1] = Object.new
-      w[:bat] = :foo
-      w[Object.new] = "&"*1000
-      w["FOOO"*10000] = x+1
-      w[:foo] = "BAR"
+      @weak_hash[Object.new] = "&"*10000
+      @weak_hash[x] = "&"*10000
     end
 
-    w.clear
-    5.times{ GC.start }
-
+    force_gc_cleanup
+    @weak_hash._cleanup if @weak_hash.respond_to?(:_cleanup)
+    
     memory_usage = `ps -o rss= -p #{$$}`.to_i
 
     memory_usage.should < initial_memory_usage * 1.5

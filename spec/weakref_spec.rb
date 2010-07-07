@@ -1,6 +1,20 @@
 require 'weakling'
 require 'jruby'
 
+def force_gc_cleanup
+  if defined? RUBY_ENGINE && RUBY_ENGINE == 'jruby'
+    begin
+      require 'java'
+      java.lang.System.gc
+    rescue
+      JRuby.gc
+    end
+  else
+    GC.start
+  end
+  sleep 0.2 # Give GC a little time to do the magick
+end
+
 describe Weakling::WeakRef do
   it "holds a reference to an object" do
     o = Object.new
@@ -29,13 +43,13 @@ describe Weakling::WeakRef do
     r.remove(50).should == nil
 
     o1 = nil
-    5.times {JRuby.gc}
+    force_gc_cleanup
 
     r.poll.should == w1
 
     o2 = nil
-    5.times {JRuby.gc}
-
+    force_gc_cleanup
+    
     r.remove.should == w2
   end
 end
