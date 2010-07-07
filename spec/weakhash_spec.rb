@@ -17,6 +17,27 @@ end
 describe Weakling::WeakHash do
   before(:each) do
     @weak_hash = Weakling::WeakHash.new
+    @str = "A";
+    @obj = Object.new
+    @sym = :foo
+    @fix = 666
+  end
+
+  it "allows us to assign value, and return assigned value" do
+    a = @str; b = @obj
+    (@weak_hash[a] = b).should == b
+  end
+
+  it "should allow us to assign and read value" do
+    a = @str; b = @obj
+    (@weak_hash[a] = b).should == b
+    @weak_hash[a].should == b
+  end
+
+  it "should use object_id to identify objects" do
+    a = Object.new
+    @weak_hash[a] = "b"
+    @weak_hash[a.dup].should be_nil
   end
 
   it "doesn't leak memory" do
