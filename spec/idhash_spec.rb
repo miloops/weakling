@@ -1,3 +1,5 @@
+return unless defined?(RUBY_ENGINE) && RUBY_ENGINE == 'jruby'
+
 require "weakling"
 require "jruby"
 

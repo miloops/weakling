@@ -1,17 +1,14 @@
+return unless defined?(RUBY_ENGINE) && RUBY_ENGINE == 'jruby'
+
 require 'weakling'
 require 'jruby'
 
 def force_gc_cleanup
-  if defined? RUBY_ENGINE && RUBY_ENGINE == 'jruby'
-    begin
-      require 'java'
-      java.lang.System.gc
-    rescue
-      JRuby.gc
-    end
-  else
-    GC.start
-  end
+  require 'java'
+  java.lang.System.gc
+rescue
+  JRuby.gc
+ensure
   sleep 0.2 # Give GC a little time to do the magick
 end
 

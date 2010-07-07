@@ -41,6 +41,11 @@ describe Weakling::WeakHash do
     @weak_hash[a.dup].should be_nil
   end
 
+  it "should find objects that have same hash" do
+    @weak_hash["a"] = "b"
+    @weak_hash["a"].should == "b"
+  end
+
   it "doesn't leak memory" do
     initial_memory_usage = `ps -o rss= -p #{$$}`.to_i
 
