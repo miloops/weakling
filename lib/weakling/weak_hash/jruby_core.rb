@@ -7,26 +7,38 @@ module Weakling
         attr_accessor :id
         def initialize(obj, queue)
           super(obj, queue)
-          @id = obj.__id__
+          @id = obj.object_id
         end
       end
 
       def initialize
-        @key_to_value = Hash.new
-        @value_to_keys = Hash.new{|hash, key| hash[key] = Hash.new }
-
+        # Queues for hash cleaning
         @key_queue = Weakling::RefQueue.new
         @value_queue = Weakling::RefQueue.new
 
-        @hash_map = Hash.new{|hash, key| hash[key] = Hash.new }
-        @rev_hash_map = Hash.new
+        @reclaim_value = lambda do |v_id|
+          if @value_to_keys.has_key?(v_id)
+            @value_to_keys.delete(v_id).each{|k_id| @reclaim_key.call(k_id)}
+          end
+        end
+
+        @reclaim_key = lambda do |k_id|
+          v_id = @key_to_value.delete(k_id).id
+          @value_to_keys[v_id].delete(k_id)
+          @value_to_keys.delete(v_id) if @value_to_keys[v_id].empty?
+
+          hash = @rev_hash_map.delete(k_id)
+          @hash_map[hash].delete(k_id)
+          @hash_map.delete(hash) if @hash_map[hash].empty?
+        end
       end
 
       def [](key)
         _cleanup
         value_ref = @key_to_value[key.object_id]
 
-        if !value_ref && @hash_map[key.hash]
+        # Tries to find a value reference by _hash_value_
+        if !value_ref && @hash_map.has_key?(key.hash)
           key_id = nil
           @hash_map[key.hash].any? do |k_id, key_ref|
             hkey = key_ref.get rescue nil
@@ -45,13 +57,17 @@ module Weakling
         key_ref = IdWeakRef.new(key, @key_queue)
         value_ref = IdWeakRef.new(value, @value_queue)
 
+        # If key was already occupied by another value, we must first remove key
+        # from reverse _value_ => _key_ map
         if old_value_ref = @key_to_value[key_ref.id]
           @value_to_keys[old_value_ref.id].delete(key_ref.id)
         end
 
+        # Assigns value reference to key, and vice-versa
         @key_to_value[key_ref.id] = value_ref
         @value_to_keys[value_ref.id][key_ref.id] = key_ref
 
+        # Save also hash value
         @hash_map[key.hash][key_ref.id] = key_ref
         @rev_hash_map[key_ref.id] = key.hash
 
@@ -60,6 +76,7 @@ module Weakling
 
       def each
         _cleanup
+
         @key_to_value.each do |key_id, value_ref|
           begin
             value = value_ref.get
@@ -70,16 +87,16 @@ module Weakling
           rescue RefError
           end
         end
+
+        self
       end
 
       def _cleanup
-        while ref = @key_queue.poll
-          value_ref = @key_to_value.delete(ref.id)
-          @value_to_keys[value_ref.id].delete(ref.id)
-          @hash_map[@rev_hash_map.delete(ref.id)].delete(ref.id)
+        while ref = @key_queue.poll # Key was collected
+          @reclaim_key.call(ref.id)
         end
         while ref = @value_queue.poll
-          @value_to_keys.delete(ref.id).each{|k| @key_to_value.delete(k) }
+          @reclaim_value.call(ref.id)
         end
       end
     end

@@ -12,7 +12,7 @@ def force_gc_cleanup
   else
     GC.start
   end
-  sleep 0.2 # Give GC a little time to do the magick
+  sleep 0.5 # Give GC a little time to do the magick
 end
 
 describe Weakling::WeakHash do
@@ -46,16 +46,51 @@ describe Weakling::WeakHash do
     @weak_hash["a"].should == "b"
   end
 
+  it "should hold mappings" do
+    result = (1..10).map do |x|
+      @weak_hash[x] = "x" * x
+      [x, "x"*x]
+    end
+
+    @weak_hash.to_a.sort.should == result
+  end
+
+  it "should allow iteration" do
+    result = {}
+    (1..10).map do |x|
+      @weak_hash[x] = "x" * x
+      result[x] = "x"*x
+    end
+
+    @weak_hash.each do |k,v|
+      result[k].should == v
+    end
+  end
+
+  it "should weakly reference the objects" do
+    ary = (1..10).to_a.map {Object.new}
+    ids = ary.map {|o| @weak_hash[o] = "x"}
+    ary = nil
+
+    force_gc_cleanup
+
+    @weak_hash.to_a.should be_empty
+  end
+
   it "doesn't leak memory" do
     initial_memory_usage = `ps -o rss= -p #{$$}`.to_i
 
     1000.times do |x|
       @weak_hash[Object.new] = "&"*10000
-      @weak_hash[x] = "&"*10000
+      # @weak_hash[x] = "&"*10000
     end
 
     force_gc_cleanup
     @weak_hash._cleanup if @weak_hash.respond_to?(:_cleanup)
+    unless @weak_hash._clean?
+      p @weak_hash
+    end
+    @weak_hash._clean?.should be_true
     
     memory_usage = `ps -o rss= -p #{$$}`.to_i
 

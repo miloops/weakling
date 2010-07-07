@@ -2,26 +2,28 @@ module Weakling
   class WeakHash
     module Core
       def initialize
-        @key_to_value = Hash.new
-        @value_to_keys = Hash.new{|hash, key| hash[key] = Hash.new }
-
         @reclaim_value = lambda do |v_id|
-          @value_to_keys.delete(v_id).each{|k| @key_to_value.delete(k)}
+          if @value_to_keys.has_key?(v_id)
+            @value_to_keys.delete(v_id).each{|k_id| @reclaim_key.call(k_id)}
+          end
         end
+
         @reclaim_key = lambda do |k_id|
           v_id = @key_to_value.delete(k_id)
           @value_to_keys[v_id].delete(k_id)
-          @hash_map[@rev_hash_map.delete(k_id)].delete(k_id)
-        end
+          @value_to_keys.delete(v_id) if @value_to_keys[v_id].empty?
 
-        @hash_map = Hash.new{|hash, key| hash[key] = Hash.new }
-        @rev_hash_map = Hash.new
+          hash = @rev_hash_map.delete(k_id)
+          @hash_map[hash].delete(k_id)
+          @hash_map.delete(hash) if @hash_map[hash].empty?
+        end
       end
 
       def [](key)
         v_id = @key_to_value[key.object_id]
 
-        if !v_id && @hash_map[key.hash]
+        # Tries to find a value reference by _hash_value_
+        if !v_id && @hash_map.has_key?(key.hash)
           key_id = nil
           @hash_map[key.hash].keys.any? do |k_id|
             hkey = ObjectSpace._id2ref(v_id) rescue nil
@@ -66,6 +68,8 @@ module Weakling
           rescue RangeError
           end
         end
+
+        self
       end
     end
   end
