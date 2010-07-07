@@ -18,12 +18,13 @@ module Weakling
 
         @reclaim_value = lambda do |v_id|
           if @value_to_keys.has_key?(v_id)
-            @value_to_keys.delete(v_id).each{|k_id| @reclaim_key.call(k_id)}
+            @value_to_keys.delete(v_id).each{|k_id, _| @reclaim_key.call(k_id)}
           end
         end
 
         @reclaim_key = lambda do |k_id|
-          v_id = @key_to_value.delete(k_id).id
+          return unless v_ref = @key_to_value.delete(k_id)
+          v_id = v_ref.id
           @value_to_keys[v_id].delete(k_id)
           @value_to_keys.delete(v_id) if @value_to_keys[v_id].empty?
 

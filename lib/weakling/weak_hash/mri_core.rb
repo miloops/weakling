@@ -4,7 +4,7 @@ module Weakling
       def initialize
         @reclaim_value = lambda do |v_id|
           if @value_to_keys.has_key?(v_id)
-            @value_to_keys.delete(v_id).each{|k_id| @reclaim_key.call(k_id)}
+            @value_to_keys.delete(v_id).each{|k_id, _| @reclaim_key.call(k_id)}
           end
         end
 
@@ -26,7 +26,7 @@ module Weakling
         if !v_id && @hash_map.has_key?(key.hash)
           key_id = nil
           @hash_map[key.hash].keys.any? do |k_id|
-            hkey = ObjectSpace._id2ref(v_id) rescue nil
+            hkey = ObjectSpace._id2ref(k_id) rescue nil
             key_id = k_id if hkey == key
           end
           v_id = @key_to_value[key_id]

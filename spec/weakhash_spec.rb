@@ -1,5 +1,7 @@
 require 'weakling'
-require 'jruby'
+if defined? RUBY_ENGINE && RUBY_ENGINE == 'jruby'
+  require 'jruby'
+end
 
 def force_gc_cleanup
   if defined? RUBY_ENGINE && RUBY_ENGINE == 'jruby'
@@ -68,21 +70,20 @@ describe Weakling::WeakHash do
   end
 
   it "should weakly reference the objects" do
-    ary = (1..10).to_a.map {Object.new}
-    ids = ary.map {|o| @weak_hash[o] = "x"}
+    ary = (1..10).to_a.map {|o| o = Object.new; o}
+    ary.each{|o| @weak_hash[o] = "x"; }
     ary = nil
 
     force_gc_cleanup
-
+    
     @weak_hash.to_a.should be_empty
   end
 
   it "doesn't leak memory" do
-    initial_memory_usage = `ps -o rss= -p #{$$}`.to_i
-
-    1000.times do |x|
-      @weak_hash[Object.new] = "&"*10000
-      # @weak_hash[x] = "&"*10000
+    100.times do |x|
+      @weak_hash[Object.new] = "&"*10000 # Both values collectable
+      @weak_hash[x] = "&"*10000          # only value collectable
+      @weak_hash[x.to_s] = :foo          # only key collectable + multiple keys with same value
     end
 
     force_gc_cleanup
@@ -91,10 +92,23 @@ describe Weakling::WeakHash do
       p @weak_hash
     end
     @weak_hash._clean?.should be_true
-    
-    memory_usage = `ps -o rss= -p #{$$}`.to_i
-
-    memory_usage.should < initial_memory_usage * 1.5
   end
+
+#  Long running test, takes a long time and basically duplicates previous ones.
+#  You can try to run it when you _realy_ want to check if memory isn't leaked.
+#  Doesn't force GC - assumes GC passes will be run automatically.
+#
+#  it "realy doesn't leak memory" do
+#    initial_memory_usage = `ps -o rss= -p #{$$}`.to_i
+#    10000.times do |x|
+#      @weak_hash[Object.new] = "&"*10000 # Both values collectable
+#      @weak_hash[x] = "&"*10000          # only value collectable
+#      @weak_hash[x.to_s] = :foo          # only key collectable + multiple keys with same value
+#    end
+#
+#    memory_usage = `ps -o rss= -p #{$$}`.to_i
+#
+#    memory_usage.should < initial_memory_usage * 1.5
+#  end
 end
 

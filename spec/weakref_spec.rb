@@ -1,4 +1,4 @@
-return unless defined?(RUBY_ENGINE) && RUBY_ENGINE == 'jruby'
+if defined?(RUBY_ENGINE) && RUBY_ENGINE == 'jruby'
 
 require 'weakling'
 require 'jruby'
@@ -51,3 +51,4 @@ describe Weakling::WeakRef do
   end
 end
 
+end

@@ -1,4 +1,4 @@
-return unless defined?(RUBY_ENGINE) && RUBY_ENGINE == 'jruby'
+if defined?(RUBY_ENGINE) && RUBY_ENGINE == 'jruby'
 
 require "weakling"
 require "jruby"
@@ -29,4 +29,6 @@ describe Weakling::IdHash do
 
     @id_hash.to_a.should be_empty
   end
+end
+
 end
