@@ -38,6 +38,12 @@ module Weakling
         @hash_map.empty? &&
         @rev_hash_map.empty?
     end
+
+    def clear
+      [@key_to_value, @value_to_keys, @hash_map, @rev_hash_map].each{|h| h.clear}
+
+      self
+    end
   end
 
   class SynchronizedWeakHash < Mutex
