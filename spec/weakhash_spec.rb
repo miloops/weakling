@@ -17,6 +17,16 @@ def force_gc_cleanup
   sleep 0.5 # Give GC a little time to do the magick
 end
 
+class TestStruct < Struct.new(:foo, :bar)
+  def <=>(other)
+    self.foo <=> other.foo
+  end
+
+  def ==(other)
+    self.foo == other.foo && self.bar == other.bar
+  end
+end
+
 # Looks like there's a strange bug in MRI 1.8.7 and 1.9.1 last value assigned to hash
 # Is somehow bound and not collected - I'm not sure why, it looks like scoping
 # issue with blocks and enumerators (adding nil at the end of the block solved
@@ -26,7 +36,7 @@ end
 # So for test purposes we're ignoring that one item in hash
 Spec::Matchers.define :be_almost_empty do
   match do |actual|
-    actual._clean? ||
+    actual.empty? ||
       %w{key_to_value value_to_keys hash_map rev_hash_map}.all?{|k|
         actual.instance_variable_get("@#{k}").length <= 1
       }
@@ -87,6 +97,24 @@ describe Weakling::WeakHash do
     end
 
     @weak_hash.to_a.sort.should == result
+  end
+
+  it "should allow for assigning complex keys and values" do
+    @weak_hash[["Test", 1]] = TestStruct.new("raz", "dwa")
+    @weak_hash[["Foo", 2]] = a = TestStruct.new("uno", "duo")
+    @weak_hash[["Test", 1]] = b = TestStruct.new("ichi", "ni")
+
+    @weak_hash.map{|k,v| [k,v]}.sort.should == [[["Foo", 2], a], [["Test", 1], b]]
+  end
+
+  it "Should allow removal of keys" do
+    @weak_hash[["Test", 1]] = TestStruct.new("raz", "dwa")
+    @weak_hash[["Foo", 2]] = a = TestStruct.new("uno", "duo")
+
+    @weak_hash.delete(["Test", 1])
+    @weak_hash.delete(["Foo", 2])
+
+    @weak_hash.empty?
   end
 
   it "should allow iteration" do

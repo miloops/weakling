@@ -54,15 +54,12 @@ module Weakling
       end
 
       def []=(key, value)
+        # If key was already occupied by another value, we must first remove old key
+        delete(key)
+
         _cleanup
         key_ref = IdWeakRef.new(key, @key_queue)
         value_ref = IdWeakRef.new(value, @value_queue)
-
-        # If key was already occupied by another value, we must first remove key
-        # from reverse _value_ => _key_ map
-        if old_value_ref = @key_to_value[key_ref.id]
-          @value_to_keys[old_value_ref.id].delete(key_ref.id)
-        end
 
         # Assigns value reference to key, and vice-versa
         @key_to_value[key_ref.id] = value_ref
@@ -73,6 +70,17 @@ module Weakling
         @rev_hash_map[key_ref.id] = key.hash
 
         value
+      end
+
+      def delete(key)
+        if @hash_map.has_key?(key.hash)
+          @hash_map[key.hash].any? do |k_id, key_ref|
+            hkey = key_ref.get rescue nil
+            @reclaim_key.call(k_id) if hkey == key
+          end
+        end
+
+        nil
       end
 
       def each

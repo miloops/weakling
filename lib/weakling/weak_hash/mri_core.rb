@@ -38,9 +38,7 @@ module Weakling
       end
 
       def []=(key, value)
-        if v_id = @key_to_value[key.object_id]
-          @value_to_keys[v_id].delete(key.object_id)
-        end
+        delete(key)
 
         @key_to_value[key.object_id] = value.object_id
         
@@ -56,6 +54,17 @@ module Weakling
         end
 
         value
+      end
+      
+      def delete(key)
+        if @hash_map.has_key?(key.hash)
+          @hash_map[key.hash].keys.each do |k_id|
+            hkey = ObjectSpace._id2ref(k_id) rescue nil
+            @reclaim_key.call(k_id) if hkey == key
+          end
+        end
+
+        nil
       end
 
       def each
