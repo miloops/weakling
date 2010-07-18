@@ -39,7 +39,7 @@ module Weakling
 
       def []=(key, value)
         if v_id = @key_to_value[key.object_id]
-          @value_to_keys[v_id].delete(key_object_id)
+          @value_to_keys[v_id].delete(key.object_id)
         end
 
         @key_to_value[key.object_id] = value.object_id

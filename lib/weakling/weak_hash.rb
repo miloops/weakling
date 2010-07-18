@@ -32,17 +32,21 @@ module Weakling
       @rev_hash_map = Hash.new
     end
 
-    def _clean?
-      @key_to_value.empty? &&
-        @value_to_keys.empty? &&
-        @hash_map.empty? &&
-        @rev_hash_map.empty?
+    def delete(key)
+      @reclaim_key.call(key.object_id)
     end
 
     def clear
       [@key_to_value, @value_to_keys, @hash_map, @rev_hash_map].each{|h| h.clear}
 
       self
+    end
+
+    def _clean?
+      @key_to_value.empty? &&
+        @value_to_keys.empty? &&
+        @hash_map.empty? &&
+        @rev_hash_map.empty?
     end
   end
 
