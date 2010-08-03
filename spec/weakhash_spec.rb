@@ -38,7 +38,7 @@ Spec::Matchers.define :be_almost_empty do
   match do |actual|
     actual.empty? ||
       %w{key_to_value value_to_keys hash_map rev_hash_map}.all?{|k|
-        actual.instance_variable_get("@#{k}").length <= 1
+        actual.instance_variable_get("@#{k}").length <= 0
       }
   end
 
@@ -56,7 +56,12 @@ Spec::Matchers.define :be_almost_empty do
   description do
     "be almost empty."
   end
+end
 
+def isolate_gc
+  yield
+
+  nil
 end
 
 describe Weakling::WeakHash do
@@ -114,7 +119,7 @@ describe Weakling::WeakHash do
     @weak_hash.delete(["Test", 1])
     @weak_hash.delete(["Foo", 2])
 
-    @weak_hash.empty?
+    @weak_hash.should be_empty
   end
 
   it "should allow iteration" do
@@ -130,9 +135,11 @@ describe Weakling::WeakHash do
   end
 
   it "should weakly reference the objects" do
-    ary = (1..10).to_a.map {|o| o = Object.new; o}
-    ary.each{|o| @weak_hash[o] = "x"; }
-    ary = nil
+    isolate_gc do
+      ary = (1..10).to_a.map {|o| o = Object.new; o}
+      ary.each{|o| @weak_hash[o] = "x"; }
+      ary = nil
+    end
 
     force_gc_cleanup
     
@@ -145,13 +152,13 @@ describe Weakling::WeakHash do
     String => :foo
   }.each_pair do |key,value|
     it "should properly collect #{key} => #{value} pair" do
-      (1..10).each{
-        k = key.is_a?(Class) ? key.new : key
-        v = value.is_a?(Class) ? value.new : value
-        @weak_hash[k] = v
-
-        nil
-      }
+      isolate_gc do
+        (1..10).each{
+          k = key.is_a?(Class) ? key.new : key
+          v = value.is_a?(Class) ? value.new : value
+          @weak_hash[k] = v
+        }
+      end
       
       force_gc_cleanup
       @weak_hash._cleanup if @weak_hash.respond_to?(:_cleanup)
@@ -161,11 +168,11 @@ describe Weakling::WeakHash do
   end
 
   it "should properly collect Fixnum => String pair" do
-    (1..20).each{ |x|
-      @weak_hash[x] = "Foo"*5
-
-      nil
-    }
+    isolate_gc do
+      (1..20).each{ |x|
+        @weak_hash[x] = "Foo"*5
+      }
+    end
 
     force_gc_cleanup
     @weak_hash._cleanup if @weak_hash.respond_to?(:_cleanup)
@@ -174,16 +181,16 @@ describe Weakling::WeakHash do
   end
 
   it "Should properly collect multiple keys with the same value" do
-    (1..10).each do |x|
-      @weak_hash["a"*x] = true
-      @weak_hash["b"*x] = true
-      @weak_hash["c"*x] = true
-      @weak_hash["a"*x] = false
-      @weak_hash["d"*x] = false
-
-      nil
+    isolate_gc do
+      (1..10).each do |x|
+        @weak_hash["a"*x] = true
+        @weak_hash["b"*x] = true
+        @weak_hash["c"*x] = true
+        @weak_hash["a"*x] = false
+        @weak_hash["d"*x] = false
+      end
     end
-    
+
     force_gc_cleanup
     @weak_hash._cleanup if @weak_hash.respond_to?(:_cleanup)
 
@@ -191,14 +198,14 @@ describe Weakling::WeakHash do
   end
 
   it "doesn't leak memory" do
-    (1..100).each do |x|
-      @weak_hash[Object.new] = "&"*10000 # Both values collectable
-      @weak_hash[x] = "&"*10000          # only value collectable
-      @weak_hash[x.to_s] = :foo          # only key collectable + multiple keys with same value
-
-      nil
+    isolate_gc do
+      (1..100).each do |x|
+        @weak_hash[Object.new] = "&"*10000 # Both values collectable
+        @weak_hash[x] = "&"*10000          # only value collectable
+        @weak_hash[x.to_s] = :foo          # only key collectable + multiple keys with same value
+      end
     end
-
+    
     force_gc_cleanup
     @weak_hash._cleanup if @weak_hash.respond_to?(:_cleanup)
 
